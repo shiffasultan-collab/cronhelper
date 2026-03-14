@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CronHelper — Natural Language to Cron Expression</title>
+  <meta name="description" content="Describe your schedule in plain English and instantly get the cron expression. Free, no signup, runs in your browser." />
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #6c63ff;
+      --accent2: #a78bfa;
+      --green: #22c55e;
+      --red: #ef4444;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* HEADER */
+    header {
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo { font-size: 1.5rem; }
+    header h1 { font-size: 1.25rem; font-weight: 700; }
+    header span { color: var(--accent2); }
+    .badge {
+      margin-left: auto;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.7rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+    }
+
+    main { flex: 1; max-width: 860px; margin: 0 auto; width: 100%; padding: 2.5rem 1.5rem; }
+
+    /* HERO */
+    .hero { text-align: center; margin-bottom: 2.5rem; }
+    .hero h2 { font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; }
+    .hero h2 span { color: var(--accent2); }
+    .hero p { color: var(--muted); font-size: 1rem; }
+
+    /* INPUT CARD */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .card label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.6rem;
+    }
+    .input-row { display: flex; gap: 0.75rem; align-items: flex-start; }
+    textarea {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1rem;
+      padding: 0.85rem 1rem;
+      resize: none;
+      min-height: 56px;
+      max-height: 120px;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+    textarea:focus { outline: none; border-color: var(--accent); }
+    textarea::placeholder { color: var(--muted); }
+
+    /* API key row */
+    .key-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      margin-top: 1rem;
+    }
+    .key-row input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.9rem;
+      padding: 0.65rem 1rem;
+      font-family: var(--mono);
+    }
+    .key-row input:focus { outline: none; border-color: var(--accent); }
+    .key-row input::placeholder { color: var(--muted); font-family: inherit; }
+    .key-note { font-size: 0.75rem; color: var(--muted); margin-top: 0.4rem; }
+    .key-note a { color: var(--accent2); text-decoration: none; }
+
+    /* BUTTON */
+    button.generate {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.85rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      white-space: nowrap;
+      min-width: 120px;
+    }
+    button.generate:hover { background: #7c74ff; }
+    button.generate:active { transform: scale(0.97); }
+    button.generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* RESULT */
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+    .result-card.visible { display: block; }
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .result-header h3 { font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+    .cron-display {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-family: var(--mono);
+      font-size: 1.5rem;
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      word-break: break-all;
+    }
+    .copy-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover { background: var(--border); }
+    .copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+    .explanation {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+    .explanation strong { color: var(--text); }
+
+    /* BREAKDOWN */
+    .breakdown {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .breakdown-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem;
+      text-align: center;
+    }
+    .breakdown-item .field-val {
+      font-family: var(--mono);
+      font-size: 1.1rem;
+      color: var(--accent2);
+      font-weight: 700;
+    }
+    .breakdown-item .field-name {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 0.2rem;
+    }
+
+    .next-runs {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .next-runs strong { color: var(--text); }
+    .next-runs ul { list-style: none; margin-top: 0.4rem; padding: 0; }
+    .next-runs li { padding: 0.2rem 0; }
+    .next-runs li::before { content: '→ '; color: var(--accent2); }
+
+    /* QUICK EXAMPLES */
+    .examples-section h3 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.75rem;
+    }
+    .examples-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.5rem;
+    }
+    .example-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.85rem;
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .example-chip:hover { border-color: var(--accent); background: var(--surface2); }
+    .example-chip .chip-cron {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--green);
+      opacity: 0.7;
+    }
+
+    /* ERROR */
+    .error-msg {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      color: var(--red);
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+      display: none;
+    }
+    .error-msg.visible { display: block; }
+
+    /* SPINNER */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* SUITE LINKS */
+    .suite-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+      justify-content: center;
+      align-items: center;
+    }
+    .suite-bar span { font-size: 0.75rem; color: var(--muted); }
+    .suite-bar a {
+      font-size: 0.8rem;
+      color: var(--accent2);
+      text-decoration: none;
+      opacity: 0.8;
+    }
+    .suite-bar a:hover { opacity: 1; }
+
+    @media (max-width: 600px) {
+      .breakdown { grid-template-columns: repeat(3, 1fr); }
+      .input-row { flex-direction: column; }
+      button.generate { width: 100%; }
+      .cron-display { font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⏰</div>
+  <h1>Cron<span>Helper</span></h1>
+  <div class="badge">Free · No signup</div>
+</header>
+
+<main>
+  <div class="hero">
+    <h2>Plain English → <span>Cron Expression</span></h2>
+    <p>Describe your schedule. Get the exact cron syntax. Instant explanation + next run times.</p>
+  </div>
+
+  <div class="card">
+    <label>Describe your schedule</label>
+    <div class="input-row">
+      <textarea id="prompt" placeholder='e.g. "Every weekday at 9am" or "Every 15 minutes on weekdays between 8am and 6pm"' rows="2"></textarea>
+      <button class="generate" id="generateBtn" onclick="generate()">Generate</button>
+    </div>
+
+    <div class="key-row">
+      <input type="password" id="apiKey" placeholder="sk-... (OpenAI API key)" />
+    </div>
+    <p class="key-note">Your key stays in your browser. Never sent anywhere except OpenAI. <a href="https://platform.openai.com/api-keys" target="_blank">Get a key →</a></p>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="result-header">
+      <h3>Cron Expression</h3>
+    </div>
+    <div class="cron-display">
+      <span id="cronOutput"></span>
+      <button class="copy-btn" id="copyBtn" onclick="copyCron()">Copy</button>
+    </div>
+    <div class="breakdown" id="breakdown"></div>
+    <div class="explanation" id="explanation"></div>
+    <div class="next-runs" id="nextRuns"></div>
+  </div>
+
+  <div class="examples-section">
+    <h3>Quick examples</h3>
+    <div class="examples-grid" id="examplesGrid"></div>
+  </div>
+</main>
+
+<footer class="suite-bar">
+  <span>Developer suite:</span>
+  <a href="https://shiffasultan-collab.github.io/readmecraft/" target="_blank">ReadmeCraft</a>
+  <a href="https://shiffasultan-collab.github.io/commitcraft/" target="_blank">CommitCraft</a>
+  <a href="https://shiffasultan-collab.github.io/prcraft/" target="_blank">PRCraft</a>
+  <a href="https://shiffasultan-collab.github.io/changelogcraft/" target="_blank">ChangelogCraft</a>
+  <a href="https://shiffasultan-collab.github.io/gitdigest-static/" target="_blank">GitDigest</a>
+</footer>
+
+<script>
+// --- EXAMPLES ---
+const EXAMPLES = [
+  { label: "Every day at midnight",         cron: "0 0 * * *" },
+  { label: "Every hour",                    cron: "0 * * * *" },
+  { label: "Every 15 minutes",              cron: "*/15 * * * *" },
+  { label: "Weekdays at 9am",               cron: "0 9 * * 1-5" },
+  { label: "Every Sunday at 2am",           cron: "0 2 * * 0" },
+  { label: "1st of each month at noon",     cron: "0 12 1 * *" },
+  { label: "Every 5 minutes",               cron: "*/5 * * * *" },
+  { label: "Mon–Fri at 8am and 5pm",        cron: "0 8,17 * * 1-5" },
+  { label: "Every quarter (Jan/Apr/Jul/Oct)", cron: "0 0 1 1,4,7,10 *" },
+  { label: "Weekdays every 30min 9am–5pm",  cron: "*/30 9-17 * * 1-5" },
+];
+
+const FIELDS = ["Minute", "Hour", "Day", "Month", "Weekday"];
+
+function renderExamples() {
+  const grid = document.getElementById('examplesGrid');
+  EXAMPLES.forEach(ex => {
+    const chip = document.createElement('div');
+    chip.className = 'example-chip';
+    chip.innerHTML = `<span>${ex.label}</span><span class="chip-cron">${ex.cron}</span>`;
+    chip.onclick = () => showStaticResult(ex.label, ex.cron);
+    grid.appendChild(chip);
+  });
+}
+
+function showStaticResult(label, cron) {
+  document.getElementById('prompt').value = label;
+  displayResult(cron, `This runs: <strong>${label.toLowerCase()}</strong>.`, null);
+}
+
+// --- CRON UTILS ---
+function parseCron(expr) {
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length !== 5) return null;
+  return parts;
+}
+
+function computeNextRuns(expr, count = 5) {
+  // Simple next-run approximation for common patterns
+  // Real cron parsing is complex — we give a best-effort display
+  try {
+    const parts = parseCron(expr);
+    if (!parts) return [];
+    const runs = [];
+    const now = new Date();
+    now.setSeconds(0, 0);
+    const max = 60 * 24 * 365; // look up to 1 year ahead
+    let checked = 0;
+    let d = new Date(now.getTime() + 60000); // start 1 min ahead
+    while (runs.length < count && checked < max) {
+      if (matchesCron(parts, d)) runs.push(new Date(d));
+      d = new Date(d.getTime() + 60000);
+      checked++;
+    }
+    return runs;
+  } catch { return []; }
+}
+
+function matchField(field, val, min, max) {
+  if (field === '*') return true;
+  if (field.startsWith('*/')) {
+    const step = parseInt(field.slice(2));
+    return val % step === 0;
+  }
+  if (field.includes(',')) return field.split(',').some(f => matchField(f, val, min, max));
+  if (field.includes('-')) {
+    const [lo, hi] = field.split('-').map(Number);
+    return val >= lo && val <= hi;
+  }
+  if (field.includes('/')) {
+    const [range, step] = field.split('/');
+    const s = parseInt(step);
+    if (range === '*') return val % s === 0;
+    if (range.includes('-')) {
+      const [lo, hi] = range.split('-').map(Number);
+      return val >= lo && val <= hi && (val - lo) % s === 0;
+    }
+  }
+  return parseInt(field) === val;
+}
+
+function matchesCron(parts, d) {
+  const min = d.getMinutes(), hr = d.getHours(), dom = d.getDate(),
+        mon = d.getMonth() + 1, dow = d.getDay();
+  return matchField(parts[0], min, 0, 59) &&
+         matchField(parts[1], hr, 0, 23) &&
+         matchField(parts[2], dom, 1, 31) &&
+         matchField(parts[3], mon, 1, 12) &&
+         matchField(parts[4], dow, 0, 6);
+}
+
+function formatDate(d) {
+  return d.toLocaleString('en-GB', { weekday:'short', month:'short', day:'numeric',
+    hour:'2-digit', minute:'2-digit', hour12: false });
+}
+
+// --- AI GENERATE ---
+async function generate() {
+  const prompt = document.getElementById('prompt').value.trim();
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!prompt) { showError("Please describe your schedule."); return; }
+  if (!apiKey) { showError("Please enter your OpenAI API key."); return; }
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Generating…';
+  hideError();
+  document.getElementById('resultCard').classList.remove('visible');
+
+  const systemPrompt = `You are a cron expression expert. The user will describe a schedule in plain English.
+Respond with ONLY a JSON object with these fields:
+- "cron": the 5-field cron expression (minute hour day month weekday)
+- "explanation": a one-sentence plain English explanation of exactly when it runs
+- "confidence": "high" | "medium" | "low"
+
+Rules:
+- Use standard 5-field cron (no seconds field, no @reboot)
+- If ambiguous, pick the most common interpretation and note it in explanation
+- Response must be valid JSON only — no markdown, no code fences`;
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.1,
+        max_tokens: 200
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `API error ${res.status}`);
+    }
+
+    const data = await res.json();
+    const raw = data.choices?.[0]?.message?.content?.trim();
+    const parsed = JSON.parse(raw);
+    const { cron, explanation } = parsed;
+
+    if (!cron || !/^[\d\/*,\-]+\s+[\d\/*,\-]+\s+[\d\/*,\-]+\s+[\d\/*,\-]+\s+[\d\/*,\-]+$/.test(cron.trim())) {
+      throw new Error("Received invalid cron expression.");
+    }
+
+    displayResult(cron, explanation, null);
+    // Save key
+    localStorage.setItem('openai_key', apiKey);
+  } catch (e) {
+    showError(e.message || "Something went wrong. Check your API key and try again.");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Generate';
+  }
+}
+
+function displayResult(cron, explanation, confidence) {
+  const parts = parseCron(cron);
+  if (!parts) return;
+
+  document.getElementById('cronOutput').textContent = cron;
+  document.getElementById('explanation').innerHTML = explanation || '';
+
+  // Breakdown
+  const bd = document.getElementById('breakdown');
+  bd.innerHTML = '';
+  parts.forEach((val, i) => {
+    const item = document.createElement('div');
+    item.className = 'breakdown-item';
+    item.innerHTML = `<div class="field-val">${val}</div><div class="field-name">${FIELDS[i]}</div>`;
+    bd.appendChild(item);
+  });
+
+  // Next runs
+  const runs = computeNextRuns(cron);
+  const nr = document.getElementById('nextRuns');
+  if (runs.length > 0) {
+    nr.innerHTML = `<strong>Next ${runs.length} runs:</strong><ul>${runs.map(r => `<li>${formatDate(r)}</li>`).join('')}</ul>`;
+  } else {
+    nr.innerHTML = '';
+  }
+
+  document.getElementById('resultCard').classList.add('visible');
+  document.getElementById('copyBtn').textContent = 'Copy';
+  document.getElementById('copyBtn').classList.remove('copied');
+}
+
+function copyCron() {
+  const text = document.getElementById('cronOutput').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+function hideError() { document.getElementById('errorMsg').classList.remove('visible'); }
+
+// Enter key
+document.addEventListener('DOMContentLoaded', () => {
+  renderExamples();
+  // Restore saved key
+  const saved = localStorage.getItem('openai_key');
+  if (saved) document.getElementById('apiKey').value = saved;
+
+  document.getElementById('prompt').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); generate(); }
+  });
+});
+</script>
+</body>
+</html>
